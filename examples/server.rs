@@ -14,10 +14,15 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
-use std::sync::{
-    Arc,
-    atomic::{AtomicU64, Ordering},
+use std::{
+    net::SocketAddr,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
 };
+
+use tracing::info;
 
 // User model
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,15 +78,8 @@ impl AppState {
         self.inner.users.get(&id).map(|user| user.clone())
     }
 
-    fn create_user(&self, create_user: CreateUser) -> Result<User, String> {
-        let salt = SaltString::generate(&mut OsRng);
-
-        let password_hash = self
-            .inner
-            .argon2
-            .hash_password(create_user.password.as_bytes(), &salt)
-            .map_err(|e| e.to_string())?
-            .to_string();
+    fn create_user(&self, create_user: CreateUser) -> Result<User, anyhow::Error> {
+        let password_hash = hash_password(&self.inner.argon2, &create_user.password)?;
 
         let id = self.inner.next_id.fetch_add(1, Ordering::SeqCst);
         let now = Utc::now();
@@ -108,15 +106,7 @@ impl AppState {
         }
 
         if let Some(password) = update.password {
-            let salt = SaltString::generate(&mut OsRng);
-
-            let password_hash = self
-                .inner
-                .argon2
-                .hash_password(password.as_bytes(), &salt)
-                .ok()?
-                .to_string();
-
+            let password_hash = hash_password(&self.inner.argon2, &password).ok()?;
             user.password = password_hash;
         }
 
@@ -146,8 +136,16 @@ impl AppState {
     }
 }
 
-// Route handlers
+fn hash_password(argon2: &Argon2<'static>, password: &str) -> Result<String, anyhow::Error> {
+    let salt = SaltString::generate(&mut OsRng);
+    let password_hash = argon2
+        .hash_password(password.as_bytes(), &salt)
+        .map_err(|_| anyhow::anyhow!("Failed to hash password"))?
+        .to_string();
+    Ok(password_hash)
+}
 
+// Route handlers
 async fn get_user(
     Path(id): Path<u64>,
 
@@ -162,13 +160,12 @@ async fn list_users(State(state): State<AppState>) -> Json<Vec<User>> {
 
 async fn create_user(
     State(state): State<AppState>,
-
     Json(create_user): Json<CreateUser>,
 ) -> Result<(StatusCode, Json<User>), (StatusCode, String)> {
     state
         .create_user(create_user)
         .map(|user| (StatusCode::CREATED, Json(user)))
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))
 }
 
 async fn update_user(
@@ -205,24 +202,23 @@ async fn health_check(State(state): State<AppState>) -> Json<Health> {
 }
 
 #[tokio::main]
-
 async fn main() {
+    tracing_subscriber::fmt::init();
+
     let app_state = AppState::new();
 
     let app = Router::new()
-        .route("/users/:id", get(get_user))
+        .route("/users/{id}", get(get_user))
         .route("/users", get(list_users))
         .route("/users", post(create_user))
-        .route("/users/:id", put(update_user))
-        .route("/users/:id", delete(delete_user))
+        .route("/users/{id}", put(update_user))
+        .route("/users/{id}", delete(delete_user))
         .route("/health", get(health_check))
         .with_state(app_state);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
-        .unwrap();
-
-    println!("Server running on http://127.0.0.1:3000");
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    info!("Server running on http://{}", addr);
 
     axum::serve(listener, app).await.unwrap();
 }
