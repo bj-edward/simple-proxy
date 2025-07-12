@@ -1,0 +1,14 @@
+# Rest Client
+
+## Create a user
+POST http://localhost:3000/users
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password",
+  "name": "Test User"
+}
+
+# GET http://localhost:3000/users
+# Content-Type: application/json
