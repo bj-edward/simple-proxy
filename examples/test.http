@@ -1,14 +1,72 @@
 # Rest Client
 
-## Create a user
-POST http://localhost:3000/users
+GET http://example.com HTTP/1.1
+
+# # Create a user
+
+POST http://localhost:3000/users HTTP/1.1
 Content-Type: application/json
 
 {
-  "email": "test@example.com",
-  "password": "password",
-  "name": "Test User"
+ "email": "test@example.com",
+ "name": "Test User",
+ "password": "password"
 }
 
-# GET http://localhost:3000/users
-# Content-Type: application/json
+
+###
+
+GET http://localhost:3000/users HTTP/1.1
+Content-Type: application/json
+
+
+### Simple GET request
+
+GET https://httpbin.org/get HTTP/1.1
+
+
+### GET with query parameters
+
+GET https://httpbin.org/get?name=test&age=25 HTTP/1.1
+
+
+### POST with JSON body
+
+POST https://httpbin.org/post HTTP/1.1
+Content-Type: application/json
+
+
+###
+
+GET {
+ "name": "zhijli",
+ "email": "zhijli@cisco.com"
+ } HTTP/1.1
+
+
+### PUT with headers
+
+PUT https://httpbin.org/put HTTP/1.1
+Content-Type: application/json
+X-Custom-Header: test-value
+
+
+###
+
+GET {
+ "id": 1,
+ "status": "updated"
+ } HTTP/1.1
+
+
+### DELETE request
+
+DELETE https://httpbin.org/delete HTTP/1.1
+
+
+### GET with multiple headers
+
+GET https://httpbin.org/headers HTTP/1.1
+Accept: application/json
+User-Agent: : My-Test-Client
+Authorization: Bearer test-token
