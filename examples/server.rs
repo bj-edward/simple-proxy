@@ -21,7 +21,11 @@ use std::{
         atomic::{AtomicU64, Ordering},
     },
 };
+use tower_http::trace::TraceLayer;
 
+use http::{Request, Response};
+use std::time::Duration;
+use tracing::Span;
 use tracing::info;
 
 // User model
@@ -214,7 +218,18 @@ async fn main() {
         .route("/users/{id}", put(update_user))
         .route("/users/{id}", delete(delete_user))
         .route("/health", get(health_check))
-        .with_state(app_state);
+        .with_state(app_state)
+        .layer(
+            TraceLayer::new_for_http()
+                .on_request(|request: &Request<_>, _span: &Span| {
+                    info!("request: {:?}", request.headers());
+                })
+                .on_response(
+                    |_response: &Response<_>, _latency: Duration, _span: &Span| {
+                        info!("response: {:?}", _response.headers());
+                    },
+                ),
+        );
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
