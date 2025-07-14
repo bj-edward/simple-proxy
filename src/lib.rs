@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use http::HeaderName;
 use pingora::http::ResponseHeader;
 use pingora::prelude::*;
 use tracing::{info, warn};
@@ -32,9 +31,10 @@ impl ProxyHttp for SimpleProxy {
         Self::CTX: Send + Sync,
     {
         info!("upstream_request_filter: {:?}", upstream_request);
-        upstream_request.insert_header(HeaderName::from_static("x-simple-proxy"), "v0.1")?;
-        upstream_request
-            .insert_header(HeaderName::from_static("user-agent"), "SimepleProxy/0.1")?;
+        // upstream_request.insert_header(HeaderName::from_static("x-simple-proxy"), "v0.1")?;
+        // upstream_request
+        //     .insert_header(HeaderName::from_static("user-agent"), "SimepleProxy/0.1")?;
+        upstream_request.insert_header("user-agent", "SimepleProxy/0.1")?;
         Ok(())
     }
 
@@ -46,21 +46,24 @@ impl ProxyHttp for SimpleProxy {
     ) {
         info!("upstream_response_filter: {:?}", upstream_response);
         if let Err(e) =
-            upstream_response.insert_header(HeaderName::from_static("x-simple-proxy"), "v0.1")
+            // upstream_response.insert_header(HeaderName::from_static("x-simple-proxy"), "v0.1")
+            upstream_response.insert_header("x-simple-proxy", "v0.1")
         {
             warn!("failed to insert header: {}", e);
         }
         match upstream_response.remove_header("server") {
             Some(server) => {
                 if let Err(e) =
-                    upstream_response.insert_header(HeaderName::from_static("server"), server)
+                    // upstream_response.insert_header(HeaderName::from_static("server"), server)
+                    upstream_response.insert_header("server", server)
                 {
                     warn!("failed to insert header: {}", e);
                 }
             }
             None => {
                 if let Err(e) = upstream_response
-                    .insert_header(HeaderName::from_static("server"), "SimepleProxy/0.1")
+                    // .insert_header(HeaderName::from_static("server"), "SimepleProxy/0.1")
+                    .insert_header("server", "SimepleProxy/0.1")
                 {
                     warn!("failed to insert header: {}", e);
                 }
